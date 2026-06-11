@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新加坡美食+酒店+4天3晚打卡路线互动地图</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    #app { display: flex; height: 100%; width: 100%; }
+    #sidebar { width: 500px; max-width: 47vw; overflow: auto; padding: 16px 16px 28px; box-sizing: border-box; background: #0f172a; color: #f8fafc; box-shadow: 2px 0 12px rgba(0,0,0,.28); z-index: 1000; }
+    #map { flex: 1; min-width: 0; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    h2 { font-size: 15px; margin: 14px 0 8px; color: #e2e8f0; }
+    .subtitle { color: #cbd5e1; font-size: 13px; line-height: 1.55; margin-bottom: 10px; }
+    .note { background: rgba(251,191,36,.12); color: #fde68a; border: 1px solid rgba(251,191,36,.25); padding: 9px 10px; border-radius: 12px; font-size: 12px; line-height: 1.5; margin: 8px 0 12px; }
+    .routebox { background: rgba(59,130,246,.10); border: 1px solid rgba(59,130,246,.22); color:#bfdbfe; border-radius:12px; padding:9px 10px; font-size:12px; line-height:1.55; margin:8px 0 12px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    button { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); color: #fff; padding: 7px 10px; border-radius: 999px; cursor: pointer; font-size: 12.5px; }
+    button.active { background: #fff; color: #111827; }
+    .legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0 14px; font-size: 13px; }
+    .legend span { display: flex; align-items: center; gap: 6px; color: #e5e7eb; }
+    .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .card { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10); border-radius: 15px; padding: 11px 12px; cursor: pointer; }
+    .card:hover { background: rgba(255,255,255,.12); }
+    .card .title { font-weight: 750; font-size: 14px; margin-bottom: 6px; }
+    .card .meta { color: #cbd5e1; font-size: 12px; line-height: 1.5; margin-top: 4px; }
+    .tag { font-size: 11.5px; padding: 2px 7px; border-radius: 999px; color: #111827; margin-right: 6px; display:inline-block; margin-bottom:4px; font-weight: 700; }
+    .popup { min-width: 310px; max-width: 420px; }
+    .popup h3 { margin: 0 0 6px; font-size: 16px; }
+    .popup p { margin: 6px 0; line-height: 1.48; }
+    .popup .muted { color: #555; font-size: 12px; }
+    .popup a { color: #2563eb; font-weight: 700; text-decoration: none; }
+    .sources a { display:block; margin: 2px 0; font-weight:500; }
+    .marker { width: 36px; height: 36px; border-radius: 50%; display:flex; align-items:center; justify-content:center; color: #111827; font-size: 16px; font-weight: 900; border: 4px solid white; box-shadow: 0 2px 9px rgba(0,0,0,.38); }
+    .marker.hotel { width: 40px; height: 40px; font-size: 20px; border-color:#f8fafc; background:#0f172a; color:#fff; }
+    .marker.attraction { border-radius: 12px; color: #fff; font-size: 13px; width: 40px; }
+    .small { font-size: 12px; color: #cbd5e1; line-height:1.5; }
+    @media (max-width: 900px) { #app { flex-direction: column; } #sidebar { width: 100%; max-width: 100vw; height: 52%; } #map { height: 48%; } }
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <h1>新加坡美食 + 酒店 + 4天3晚打卡路线地图</h1>
+    <div class="subtitle">
+      已叠加酒店：JEN Singapore Tanglin by Shangri-La；并把 Day 1–4 经典路线打卡点和上一版美食排雷点放在同一张地图里。
+    </div>
+    <div class="note">
+      说明：网页底图使用 OpenStreetMap/Leaflet，无需 Google API Key；每个点位都提供“在 Google Maps 打开”。如需真正放入 Google My Maps，请导入同目录 KML 文件。
+    </div>
+    <div class="routebox">
+      <b>动线直观结论：</b><br>
+      ① 酒店在 Orchard/Tanglin 西侧；Day 1 滨海湾、牛车水美食都在市中心东南侧，可同天串联。<br>
+      ② Day 2 Mandai 三园在北部，离市区较远，建议整天给动物园区。<br>
+      ③ Day 3 圣淘沙在南部，适合单独一天。<br>
+      ④ Day 4 星耀樟宜在机场东部，适合离境前安排。
+    </div>
+
+    <h2>图层筛选</h2>
+    <div class="controls" id="typeControls">
+      <button class="tfilter active" data-t="全部">全部</button>
+      <button class="tfilter" data-t="food">美食</button>
+      <button class="tfilter" data-t="hotel">酒店</button>
+      <button class="tfilter" data-t="attraction">打卡点</button>
+    </div>
+    <div class="controls" id="dayControls">
+      <button class="dfilter active" data-d="全部">全部天数</button>
+      <button class="dfilter" data-d="Day 1">Day 1</button>
+      <button class="dfilter" data-d="Day 2">Day 2</button>
+      <button class="dfilter" data-d="Day 3">Day 3</button>
+      <button class="dfilter" data-d="Day 4">Day 4</button>
+      <button class="dfilter" data-d="Hotel">酒店</button>
+    </div>
+    <div class="controls" id="foodControls">
+      <button class="ffilter active" data-f="全部">全部美食</button>
+      <button class="ffilter" data-f="糖水">🍧 糖水</button>
+      <button class="ffilter" data-f="鸡饭">🍗 鸡饭</button>
+      <button class="ffilter" data-f="海鲜">🦀 海鲜</button>
+      <button class="ffilter" data-f="田鸡">🐸 田鸡</button>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="list" id="list"></div>
+  </aside>
+  <main id="map"></main>
+</div>
+
+<script>
+const points = [{"name": "合家欢 Hup Ka Foon", "category": "糖水", "address": "18 Sago Street, Singapore 059017", "lat": 1.28155, "lng": 103.84358, "hours": "Burpple: Sun–Thu 12:00–20:30, Fri–Sat 12:00–21:30, Mon closed；Wanderlog/Google 聚合显示 13:00–22:00 左右。行前以 Google 为准。", "must": "Chendol、Orh Nee、姜汁蛋奶/姜汁撞奶、传统港式糖水", "review_verdict": "可去 / 牛车水甜品优选", "priority": "4", "risk_level": "轻微排雷", "review_summary": "公开评价整体偏正面：Burpple 社区认可其传统港式糖水、姜汁蛋奶和 Chendol；Wanderlog 聚合约 4.3/5、600+ 条评价，定位为家庭式传统糖水店。适合牛车水饭后顺路吃。", "risk_notes": "个别平台低分提到服务、份量/价格、不能额外分享碗等体验问题；不建议专门跨区前往，但在牛车水附近很顺。", "best_for": "牛车水/佛牙寺/Maxwell 附近饭后甜品", "source_note": "Burpple + Wanderlog + HBF", "sources": "Burpple - Hup Ka Foon: https://www.burpple.com/hup-ka-foon | Wanderlog - Hup Ka Foon: https://wanderlog.com/place/details/4895278 | Heritage Business Foundation - Hup Ka Foon: https://thehbf.org/hup-ka-foon/", "point_type": "food", "short_name": "合家欢 Hup Ka Foon", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "Yat Ka Yan Dessert 一家人甜品（Fortune Centre 老店）", "category": "糖水", "address": "190 Middle Road, #02-08 Fortune Centre, Singapore 188979", "lat": 1.30042, "lng": 103.85229, "hours": "Burpple: Tue closed；其余多为 12:00/13:30–22:00/23:00，中间可能有 break。行前以 Google/IG 为准。", "must": "Chendol、黑芝麻糊、杏仁糊、核桃糊、Orh Nee、菜脯猪肠粉", "review_verdict": "可去 / 但有网红化分歧", "priority": "4", "risk_level": "轻微排雷", "review_summary": "Foodpanda 显示 5/5、100+ 评价；Burpple/Food Review 认为其是 Bugis/Fortune Centre 的传统甜品人气店。Reddit 也有用户强推 Chendol、热甜品和菜脯猪肠粉。", "risk_notes": "Reddit 讨论中也有明显反向声音：有人认为被媒体/社媒 hype、份量偏小、价格偏高、标准较早年下降。建议当作 Bugis 顺路甜品，不要抱“全岛第一”的预期。", "best_for": "Bugis/观音庙/福禄寿一带饭后甜品", "source_note": "Foodpanda + Burpple + Reddit", "sources": "Burpple - Yat Ka Yan Fortune Centre: https://www.burpple.com/yat-ka-yan | foodpanda reviews - Yat Ka Yan Fortune Centre: https://www.foodpanda.sg/restaurant/x5ks/yat-ka-yan-fortune-centre/reviews | Reddit SingaporeEats discussion: https://www.reddit.com/r/SingaporeEats/comments/1pbjd8e/dessert_for_anyone_try_yak_ka_yan_fortune_centre/", "point_type": "food", "short_name": "Yat Ka Yan Dessert 一家人甜品（Fortune Centre 老店）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "Yat Ka Yan Dessert 一家人甜品（Tan Quee Lan 第二家）", "category": "糖水", "address": "9 Tan Quee Lan Street, #01-03, Singapore 188098", "lat": 1.29885, "lng": 103.85622, "hours": "Burpple/Waze/Corner 均已收录；多显示 Tue closed，其余约 12:00/12:30–23:00/24:00。", "must": "Avocado Chendol、Durian Chendol、Yammy Chendol、Mango Sago、热甜品", "review_verdict": "可去 / 比老店更适合夜甜品", "priority": "4", "risk_level": "轻微排雷", "review_summary": "二次确认：该店已被 Burpple、Waze、Corner、Eatbook、HungryGoWhere 收录，不再是“Google 搜不到”的不确定点。HungryGoWhere 称其菜单丰富、近 Bugis MRT、开到较晚；Corner 评价说队伍长但流动快。", "risk_notes": "热门甜品可能较早售罄；晚间/周末可能排队；与老店口味差异不大，若只吃一家可优先选排队短的一家。", "best_for": "Bugis 晚餐后、夜间甜品、逛完 Arab Street / Bugis Junction", "source_note": "Burpple + HungryGoWhere + Eatbook", "sources": "Burpple - Yat Ka Yan Tan Quee Lan: https://www.burpple.com/yat-ka-yan-dessert-tan-quee-lan | HungryGoWhere review: https://hungrygowhere.com/critics-reviews/yat-ka-yan-tan-quee-lan/ | Eatbook - Yat Ka Yan Bugis outlet: https://eatbook.sg/yat-ka-yan-dessert-bugis/", "point_type": "food", "short_name": "Yat Ka Yan Dessert 一家人甜品（Tan Quee Lan 第二家）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "味香园甜品 Mei Heong Yuen Dessert", "category": "糖水", "address": "63–67 Temple Street, Singapore 058611", "lat": 1.28335, "lng": 103.84395, "hours": "Tue–Sun 12:00–21:30；Mon closed。", "must": "Mango Snow Ice、Chendol Snow Ice、Durian Snow Ice、Peanut Paste、Mango Roll、杨枝甘露", "review_verdict": "可去 / 经典游客友好", "priority": "4", "risk_level": "轻微排雷", "review_summary": "The Best Singapore 2026 仍将其列为牛车水代表性中式甜品店；Tripadvisor 显示约 4.0/5、475 条评价，品类覆盖雪花冰、传统糊类、汤圆等。", "risk_notes": "游客多、环境嘈杂、服务与口味有近期差评；更适合“想吃经典雪花冰/糖水且就在牛车水”的场景，不必排极长队。", "best_for": "牛车水逛街/Temple Street 顺路；多人分一碗雪花冰", "source_note": "The Best Singapore + Tripadvisor", "sources": "The Best Singapore - Mei Heong Yuen Dessert review: https://www.thebestsingapore.com/biz-review/mei-heong-yuen-dessert/ | Tripadvisor - Mei Heong Yuen Dessert: https://www.tripadvisor.com/Restaurant_Review-g294265-d1115330-Reviews-Mei_Heong_Yuen_Dessert-Singapore.html", "point_type": "food", "short_name": "味香园甜品 Mei Heong Yuen Dessert", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "99 Old Trees Durian", "category": "糖水", "address": "1 Teo Hong Road #01-01, Singapore 088321", "lat": 1.2804, "lng": 103.8408, "hours": "Tripadvisor: Daily 12:00–21:00；你原文写 12:00–22:00，建议行前以 Google 为准。", "must": "榴莲泡芙 / Durian Choux、榴莲甜品、Chendol、猫山王相关", "review_verdict": "强推荐 / 榴莲爱好者专门去", "priority": "5", "risk_level": "轻微排雷", "review_summary": "Tripadvisor 约 4.4/5，且有 Travellers’ Choice 标签；Reddit 2026 年仍有人专门推荐其 durian puff/choux，Durian 版块也有游客称两天去了两次。", "risk_notes": "价格比路边榴莲摊高；不吃榴莲的人没必要专程。榴莲季节、品种和到货状态会影响体验。", "best_for": "Outram/牛车水附近榴莲甜品、拍照友好、空调店", "source_note": "Tripadvisor + Reddit", "sources": "Tripadvisor - 99 Old Trees Durian: https://www.tripadvisor.com.sg/Restaurant_Review-g294265-d15133401-Reviews-99_Old_Trees_Durian-Singapore.html | Reddit SingaporeEats - Durian day: https://www.reddit.com/r/SingaporeEats/comments/1tul2v5/durian_day/ | Reddit Durian - dessert shop in Singapore: https://www.reddit.com/r/Durian/comments/1r1soix/durian_dessert_shop_in_singapore/", "point_type": "food", "short_name": "99 Old Trees Durian", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "169 海南鸡饭（Chinatown Complex #02-169）", "category": "鸡饭", "address": "Chinatown Complex Food Centre, 335 Smith Street, #02-169, Singapore 050335", "lat": 1.2825, "lng": 103.84305, "hours": "信息分歧较大：Tripadvisor 显示 11:00–19:00、Wed closed；Wanderlog/Waze/Corner 多显示约 09:00/11:00–13:00/15:00。建议当作午餐档，越早越稳。", "must": "海南鸡饭、鸡杂/内脏、汤", "review_verdict": "谨慎 / 本地小众但评价分歧", "priority": "2", "risk_level": "重点排雷", "review_summary": "二次确认后不是“稳稳必吃”：Tripadvisor 约 3.3/5、15 条评价；Sluurpy 聚合约 75/100、Google 约 3.8/5。也有 Reddit/Corner 近年把它列入 Chinatown Complex 推荐清单。", "risk_notes": "排雷点是营业时间不稳定、服务态度差评、平台评分低且样本小；如果同在牛车水想稳，Tian Tian 或其他高评价鸡饭更适合游客。", "best_for": "已经在 Chinatown Complex、想吃本地小档且能接受不稳定体验", "source_note": "Tripadvisor + Sluurpy + Corner", "sources": "Tripadvisor - 169 Hainanese Chicken Rice: https://www.tripadvisor.com/Restaurant_Review-g294265-d10543081-Reviews-169_Hainanese_Chicken_Rice-Singapore.html | Sluurpy - 169 Hainanese Chicken Rice: https://www.sluurpy.com/en/singapore/restaurant/4719767/169-hainanese-chicken-rice | Corner - 169 Hainanese Chicken Rice: https://www.corner.inc/place/561321", "point_type": "food", "short_name": "169 海南鸡饭（Chinatown Complex #02-169）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "天天海南鸡饭 Tian Tian Hainanese Chicken Rice", "category": "鸡饭", "address": "1 Kadayanallur Street, #01-10/11 Maxwell Food Centre, Singapore 069184", "lat": 1.28035, "lng": 103.84474, "hours": "Michelin: Tue–Sun 10:00–20:00；Mon closed。", "must": "海南鸡饭；可加鸡腿/半只鸡分食", "review_verdict": "强推荐 / 首次来新加坡稳选", "priority": "5", "risk_level": "轻微排雷", "review_summary": "Michelin Guide 当前列为 Bib Gourmand，评价强调长队、嫩鸡、油饭和酱汁；Michelin 专文也称其是新加坡最有名的鸡饭档之一，游客比例很高。", "risk_notes": "主要问题是排队和游客化；如果时间紧，可错峰或找 Maxwell 里其他鸡饭/烧腊替代。", "best_for": "首次吃新加坡鸡饭、Maxwell/牛车水动线", "source_note": "Michelin Guide", "sources": "Michelin Guide - Tian Tian Hainanese Chicken Rice: https://guide.michelin.com/en/singapore-region/singapore/restaurant/tian-tian-hainanese-chicken-rice | Michelin Guide - Behind The Bib: Tian Tian: https://guide.michelin.com/sg/en/article/features/behind-the-bib-tian-tian-hainanese-chicken-rice", "point_type": "food", "short_name": "天天海南鸡饭 Tian Tian Hainanese Chicken Rice", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "文东记 Boon Tong Kee（Whampoa/Boon Keng）", "category": "鸡饭", "address": "34 Whampoa West, #01-93, Singapore 330034", "lat": 1.3202, "lng": 103.86328, "hours": "平台信息分歧：Tripadvisor 显示 Sun closed、部分日子开到深夜；外卖平台正常运营。建议行前查 Google。", "must": "白切鸡、脆皮豆腐、金银蛋苋菜、薏仁水", "review_verdict": "可去 / 想坐下吃更适合", "priority": "4", "risk_level": "轻微排雷", "review_summary": "Foodpanda Whampoa West 显示 4.9/5、500+ 评价，热门菜与你攻略吻合；Tripadvisor 约 110 条评价，既有游客高度认可，也有老客认为不如从前。", "risk_notes": "不是最“街头/便宜”的鸡饭体验，更像坐下吃的连锁/餐厅型鸡饭；部分外卖评价集中在漏辣椒/漏配料。", "best_for": "Boon Keng 附近、多人坐下吃、想点蔬菜豆腐配菜", "source_note": "Foodpanda + Tripadvisor", "sources": "foodpanda - Boon Tong Kee Whampoa West reviews: https://www.foodpanda.sg/restaurant/c9sm/boon-tong-kee-whampoa-west/reviews | Tripadvisor - Boon Tong Kee Bendemeer/Whampoa: https://www.tripadvisor.com.sg/Restaurant_Review-g294265-d3856138-Reviews-Boon_Tong_Kee-Singapore.html", "point_type": "food", "short_name": "文东记 Boon Tong Kee（Whampoa/Boon Keng）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "了凡油鸡饭 Hawker Chan", "category": "鸡饭", "address": "78 Smith Street, Singapore 058972", "lat": 1.28319, "lng": 103.84296, "hours": "Tripadvisor: Daily 10:30–20:00。", "must": "豉油鸡饭/油鸡面", "review_verdict": "谨慎 / 适合打卡历史，不适合当美食核心", "priority": "2", "risk_level": "重点排雷", "review_summary": "Tripadvisor 约 3.4/5、700+ 评价；它曾因“最便宜米其林星级餐”出名，但后来失去 Michelin star。当前更像游客打卡/历史符号。", "risk_notes": "排雷点是质量和预期差：Reddit 讨论中大量本地用户认为扩张后标准下降、分店/餐厅化后不如最初。若行程紧，更建议把胃口留给 Tian Tian 或更本地的鸡饭小档。", "best_for": "只想体验“曾经米其林油鸡饭”这个符号，且不排长队", "source_note": "Tripadvisor + Food & Wine + Reddit", "sources": "Tripadvisor - Hawker Chan Smith Street: https://www.tripadvisor.com.sg/Restaurant_Review-g294265-d11961130-Reviews-Hawker_Chan-Singapore.html | Food & Wine - Hawker Chan lost its star: https://www.foodandwine.com/news/michelin-hawker-chan-stall-singapore-loses-star | Reddit askSingapore discussion: https://www.reddit.com/r/askSingapore/comments/1f1onop/why_did_hawker_chan_lose_its_michelin_star/", "point_type": "food", "short_name": "了凡油鸡饭 Hawker Chan", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "Kelly Jie Seafood / Toa Payoh Mellben", "category": "海鲜", "address": "Block 211 Toa Payoh Lorong 8, #01-11/15, Singapore 310211", "lat": 1.34042, "lng": 103.85377, "hours": "Tripadvisor: Daily 12:00–14:30, 16:30–22:30。", "must": "Signature Claypot Crab Vermicelli Soup、黑胡椒蟹、金沙蟹、黑啤酒排骨", "review_verdict": "可去 / 螃蟹米粉优先", "priority": "4", "risk_level": "轻微排雷", "review_summary": "Tripadvisor 约 3.7/5、500+ 评价；其介绍强调 Mellben 系列的招牌砂煲螃蟹米粉。Reddit 也有本地用户建议若想吃 crab bee hoon 可试 Kelly Jie。", "risk_notes": "评分不是顶尖，且海鲜价格波动大；建议预约并到店先问清活蟹价格、重量、做法。重点吃 crab bee hoon，不必把每道菜都点满。", "best_for": "想吃龙海鲜系砂煲螃蟹米粉，但不想去 AMK", "source_note": "Tripadvisor + Reddit", "sources": "Tripadvisor - Kelly Jie Seafood: https://www.tripadvisor.com/Restaurant_Review-g294265-d811312-Reviews-Kelly_Jie_Seafood_TPY_Mellben-Singapore.html | Reddit askSingapore food advice: https://www.reddit.com/r/askSingapore/comments/1dfpfew/vacation_to_singapore_for_food_mainly_if_possible_some_advice_please/", "point_type": "food", "short_name": "Kelly Jie Seafood / Toa Payoh Mellben", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "龙海鲜 Mellben Seafood（Ang Mo Kio 总店）", "category": "海鲜", "address": "232 Ang Mo Kio Avenue 3, #01-1222, Singapore 560232", "lat": 1.36853, "lng": 103.83703, "hours": "Michelin: Daily 17:00–22:00；官网显示 daily 17:00–23:00。行前以 Google/官网为准。", "must": "Claypot Crab Bee Hoon、黑胡椒蟹、奶油/金沙/辣椒蟹", "review_verdict": "强推荐 / 本地风格螃蟹优先", "priority": "5", "risk_level": "轻微排雷", "review_summary": "Michelin Guide 将 AMK Mellben 标为 Seafood / Eat like a local，强调虽然位置不便利但人潮不减、几乎人人为蟹而来，并特别提到 claypot bee hoon soup。Tripadvisor 约 4.1/5、458 条评价。", "risk_notes": "位置较远、非空调/环境更本地、周末等位可能长；适合专程吃蟹，不适合赶景点日程。", "best_for": "专程吃螃蟹米粉/本地海鲜，接受打车和等待", "source_note": "Michelin + 官方 + Tripadvisor", "sources": "Michelin Guide - Mellben Seafood AMK: https://guide.michelin.com/sg/en/singapore-region/singapore/restaurant/mellben-seafood-ang-mo-kio | Mellben Signature official: https://www.mellbensignature.sg/mellben-seafood/ | Tripadvisor - Mellben Seafood: https://www.tripadvisor.com.sg/Restaurant_Review-g294265-d800257-Reviews-Mellben_Seafood-Singapore.html", "point_type": "food", "short_name": "龙海鲜 Mellben Seafood（Ang Mo Kio 总店）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "珍宝海鲜 JUMBO Seafood（Riverside Point）", "category": "海鲜", "address": "30 Merchant Road, #01-01/02 Riverside Point, Singapore 058282", "lat": 1.2894, "lng": 103.844, "hours": "官方: Daily 11:30–23:00；Last order 22:15。", "must": "辣椒蟹、黑胡椒蟹、咸蛋金沙蟹、馒头", "review_verdict": "强推荐 / 游客稳妥请客型", "priority": "5", "risk_level": "轻微排雷", "review_summary": "官网确认 Riverside Point 店位于新加坡河边，运营成熟；Tripadvisor 约 3.8/5、3400+ 评价，样本量极大。它不是最便宜，但对第一次来新加坡、需要预约和稳定服务的人很友好。", "risk_notes": "偏游客价、热门时段必须预约；若追求本地性价比，Mellben/其他 zi char 可能更有意思。", "best_for": "第一次吃辣椒蟹、商务/家庭聚餐、需要中文服务和预约确定性", "source_note": "官方 + Tripadvisor", "sources": "JUMBO Seafood official - Riverside Point: https://www.jumboseafood.com.sg/en/riverside-point | Tripadvisor - JUMBO Seafood Riverside Point: https://www.tripadvisor.com/Restaurant_Review-g294265-d2637976-Reviews-JUMBO_Seafood_Riverside_Point-Singapore.html", "point_type": "food", "short_name": "珍宝海鲜 JUMBO Seafood（Riverside Point）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "无招牌海鲜 No Signboard Seafood（Geylang）", "category": "海鲜", "address": "414 Geylang Road, Singapore 389392", "lat": 1.31388, "lng": 103.88572, "hours": "Tripadvisor: Daily 12:00–01:00。", "must": "白胡椒蟹、辣椒蟹、咸蛋黄虾婆、招牌豆腐", "review_verdict": "谨慎 / 只为白胡椒蟹可考虑", "priority": "2", "risk_level": "重点排雷", "review_summary": "Tripadvisor 约 3.7/5、776 条评价，老字号仍在营业且评价有好有坏。近期评价里有人称白胡椒蟹/辣椒蟹不错，也有人认为价格、推销、服务和稳定性不佳。", "risk_notes": "排雷点较明显：高价海鲜餐厅最怕价格不透明。建议到店先确认蟹价/重量/服务费；若只是首次吃蟹，JUMBO 更稳，若想本地口味，Mellben/Kelly Jie 更聚焦。", "best_for": "对“老字号白胡椒蟹”有执念，且能接受芽笼夜间环境", "source_note": "Tripadvisor + Reddit", "sources": "Tripadvisor - No Signboard Seafood Geylang: https://www.tripadvisor.com.sg/Restaurant_Review-g294265-d786072-Reviews-No_Signboard_Seafood-Singapore.html | Reddit SingaporeEats - chili crab discussion: https://www.reddit.com/r/SingaporeEats/comments/1bjarj2/chili_crab/", "point_type": "food", "short_name": "无招牌海鲜 No Signboard Seafood（Geylang）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "长城餐室 Tiong Shian Porridge Centre", "category": "田鸡", "address": "265 New Bridge Road, Singapore 088745", "lat": 1.28183, "lng": 103.84236, "hours": "Tripadvisor/The Best Singapore: Daily 08:00–04:00；WhereCrowded 显示 Mon closed、Tue–Sun 到 04:00/04:30，行前确认。", "must": "砂煲田鸡粥、姜葱田鸡、宫保田鸡、猪肉粥", "review_verdict": "备选 / 深夜便利胜过美食确定性", "priority": "3", "risk_level": "重点排雷", "review_summary": "The Best Singapore 2026 把它列作 Chinatown 长时间营业粥店；Tripadvisor 约 3.6/5、49 条评价，Sluurpy 聚合 3.7/5。优势是位置好、营业长、选择多。", "risk_notes": "平台差评集中在“不如从前”、粥淡、部分菜过咸/食材新鲜度等。建议当牛车水深夜备选，不要把它当成专程田鸡目的地。", "best_for": "Chinatown 深夜粥/田鸡备选；不想去 Geylang 时", "source_note": "The Best Singapore + Tripadvisor + Sluurpy", "sources": "The Best Singapore - Tiong Shian Porridge Center: https://www.thebestsingapore.com/biz-review/tiong-shian-porridge-center-new-bridge-road/ | Tripadvisor - Tiong Shian Porridge Centre: https://www.tripadvisor.com/Restaurant_Review-g294265-d3751590-Reviews-Tiong_Shian_Porridge_Centre-Singapore.html | Sluurpy - Tiong Shian Porridge Centre: https://www.sluurpy.com/en/singapore/restaurant/4717288/tiong-shian-porridge-centre", "point_type": "food", "short_name": "长城餐室 Tiong Shian Porridge Centre", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "明辉田鸡粥 Eminent Frog Porridge & Seafood（Lor 19）", "category": "田鸡", "address": "323 Geylang Road, Singapore 389359", "lat": 1.31277, "lng": 103.88286, "hours": "Michelin: Mon–Thu/Sun 16:00–03:30；Fri–Sat 16:00–04:00。", "must": "宫保田鸡、姜葱田鸡、田鸡粥", "review_verdict": "强推荐 / 田鸡粥首选", "priority": "5", "risk_level": "轻微排雷", "review_summary": "Michelin Guide 当前列为 Bib Gourmand，强调田鸡是菜单核心、姜葱/宫保做法都值得试，是本地人喜爱的深夜宵夜点，但经常客满需要等。", "risk_notes": "芽笼夜间环境复杂；女生/多人建议 Grab 到门口、走大路。饭点/宵夜高峰等位明显。", "best_for": "想专门吃田鸡粥，接受 Geylang 夜宵动线", "source_note": "Michelin Guide", "sources": "Michelin Guide - Eminent Frog Porridge & Seafood: https://guide.michelin.com/sg/en/singapore-region/singapore/restaurant/eminent-frog-porridge-seafood-lor-19", "point_type": "food", "short_name": "明辉田鸡粥 Eminent Frog Porridge & Seafood（Lor 19）", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "芽笼九巷活田鸡 Geylang Lor 9 Fresh Frog Porridge", "category": "田鸡", "address": "235 Geylang Road, Lorong 9 Geylang, Singapore 389294", "lat": 1.31169, "lng": 103.87665, "hours": "你原文写 12:30–03:45；第三方聚合平台显示评价活跃，行前以 Google 为准。", "must": "宫保田鸡、姜葱田鸡、白粥、椰子/甘蔗汁", "review_verdict": "可去 / 明辉之外的强备选", "priority": "4", "risk_level": "轻微排雷", "review_summary": "Top-Rated.Online 聚合约 4.2/5、2.6k 评价；Reddit 近年仍有人专门发帖回忆/推荐其 claypot frog legs，说明仍有本地记忆与辨识度。", "risk_notes": "不是 Michelin Bib；环境更街头，夜间同样建议打车/走大路。若两家只选一家，优先明辉；若明辉排队太久，可转九巷。", "best_for": "Geylang 田鸡粥备选，适合多人夜宵", "source_note": "Top-Rated.Online + Reddit", "sources": "Top-Rated.Online - Geylang Lor 9 Fresh Frog Porridge: https://www.top-rated.online/cities/Geylang/place/p/16282097/Geylang%2BLor%2B9%2BFresh%2BFrog%2BPorridge | Reddit singaporefood - Lor 9 frog porridge: https://www.reddit.com/r/singaporefood/comments/1lzj9nn/claypot_frog_legs_with_spring_onions/", "point_type": "food", "short_name": "芽笼九巷活田鸡 Geylang Lor 9 Fresh Frog Porridge", "day": "", "order": "", "official_note": "", "route_note": ""}, {"name": "JEN Singapore Tanglin by Shangri-La 香格里拉嘉里/仁民酒店东陵店", "short_name": "酒店｜JEN Tanglin", "point_type": "hotel", "category": "住宿", "day": "Hotel", "order": 0, "address": "1A Cuscaden Road, Singapore 249716", "lat": 1.3041, "lng": 103.82445, "hours": "酒店入住/退房以预订信息为准", "official_note": "官方 Contact Us 页面列明地址为 1A Cuscaden Road, 249716, Singapore。", "route_note": "位于 Orchard/Tanglin 一带，去市区/滨海湾适合 Grab 或 MRT；去 Mandai/圣淘沙/机场建议按时间在 Grab 与 MRT 间选择。", "sources": "Official JEN Tanglin: https://www.jen-eats.com/tanglin/web/contact-us.aspx", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Civic District / National Gallery Singapore｜市区 Citywalk 起点占位", "short_name": "D1｜Citywalk 起点", "point_type": "attraction", "category": "Day 1", "day": "Day 1", "order": 1, "address": "1 St Andrew's Road / City Hall area, Singapore", "lat": 1.2906, "lng": 103.85155, "hours": "Citywalk 开放空间为主；National Gallery 等室内景点需看具体开放时间", "official_note": "你攻略里的“市区 citywalk”不是单一景点，这里用 City Hall / Civic District / National Gallery 一带作为地图起点。", "route_note": "建议从 City Hall/Civic District 走到滨海湾一线，再到鱼尾狮、金沙、滨海湾花园。", "sources": "VisitSingapore Marina Bay area: https://www.visitsingapore.com/neighbourhood/featured-neighbourhood/marina-bay/", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Merlion Park 鱼尾狮公园", "short_name": "D1｜鱼尾狮", "point_type": "attraction", "category": "Day 1", "day": "Day 1", "order": 2, "address": "1 Fullerton Road, Singapore 049213", "lat": 1.28692, "lng": 103.85457, "hours": "Daily, 24 hours；免费开放", "official_note": "新加坡旅游局页面列明地址 1 Fullerton Road、24 小时开放、最近 MRT 为 Raffles Place。", "route_note": "最经典拍照点：鱼尾狮 + Marina Bay Sands 背景；清晨/傍晚人少、光线更好。", "sources": "VisitSingapore: https://www.visitsingapore.com/see-do-singapore/recreation-leisure/viewpoints/merlion-park/", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Marina Bay Sands 金沙", "short_name": "D1｜金沙", "point_type": "attraction", "category": "Day 1", "day": "Day 1", "order": 3, "address": "10 Bayfront Avenue, Singapore 018956", "lat": 1.28368, "lng": 103.86078, "hours": "商场/观景台/演出各自营业；Bayfront MRT 直达", "official_note": "Marina Bay Sands 官方 directions 页面列明地址 10 Bayfront Avenue，并说明 Bayfront MRT CE1/DT16 连接。", "route_note": "适合和鱼尾狮、Helix Bridge、滨海湾花园串成一条步行线；晚上可看 Spectra 水光秀。", "sources": "Marina Bay Sands official: https://www.marinabaysands.com/company-information/directions-to-marina-bay-sands.html", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Gardens by the Bay 滨海湾花园", "short_name": "D1｜滨海湾花园", "point_type": "attraction", "category": "Day 1", "day": "Day 1", "order": 4, "address": "18 Marina Gardens Drive, Singapore 018953", "lat": 1.2816, "lng": 103.8636, "hours": "户外花园与室内场馆开放时间不同；Cloud Forest/Flower Dome 等需看官网", "official_note": "Gardens by the Bay 官方页面页脚列明地址 18 Marina Gardens Drive, Singapore 018953。", "route_note": "傍晚到晚上体验最好：Supertree Grove 夜景/灯光秀 + 金沙夜景。", "sources": "Gardens by the Bay official: https://www.gardensbythebay.com.sg/en/about-us.html", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Singapore Zoo 新加坡动物园", "short_name": "D2｜日间动物园", "point_type": "attraction", "category": "Day 2", "day": "Day 2", "order": 1, "address": "80 Mandai Lake Road, Singapore 729826", "lat": 1.40435, "lng": 103.79302, "hours": "通常 08:30–18:00；以 Mandai 官网/Google 为准", "official_note": "Mandai/ZooSchool 页面列明 Mandai 位置为 80 Mandai Lake Road；公开信息显示日间动物园通常 8:30–18:00。", "route_note": "Day 2 三个园区都在 Mandai，同日安排合理；从酒店去 Mandai 建议 Grab 或 MRT+接驳。", "sources": "Mandai location: https://www.mandai.com/en/learn-with-us/zooschool/zooschool-faqs.html", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "River Wonders 河川生态园", "short_name": "D2｜River Wonders", "point_type": "attraction", "category": "Day 2", "day": "Day 2", "order": 2, "address": "80 Mandai Lake Road, Singapore 729826", "lat": 1.40485, "lng": 103.79142, "hours": "Daily 09:00–18:00；Last Entry 17:00", "official_note": "Mandai 官方 River Wonders 页面显示每日 9:00–18:00，最后入园 17:00。", "route_note": "适合夹在日间动物园与夜间动物园之间；大熊猫在 River Wonders，不在 Singapore Zoo。", "sources": "Mandai official: https://www.mandai.com/en/river-wonders.html", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Night Safari 夜间动物园", "short_name": "D2｜Night Safari", "point_type": "attraction", "category": "Day 2", "day": "Day 2", "order": 3, "address": "80 Mandai Lake Road, Singapore 729826", "lat": 1.40218, "lng": 103.78806, "hours": "Daily 18:00–00:00；Last Entry 23:15；步道/Tram 通常 19:00 后开始", "official_note": "Mandai 官方 Night Safari 页面显示每日 18:00–00:00，最后入园 23:15。", "route_note": "建议晚饭后入园，先预约/确认票和表演；夜间潮湿，带驱蚊和雨具。", "sources": "Mandai official: https://www.mandai.com/en/night-safari.html", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Universal Studios Singapore 环球影城 / 圣淘沙", "short_name": "D3｜环球影城", "point_type": "attraction", "category": "Day 3", "day": "Day 3", "order": 1, "address": "30 Sentosa Gateway, Singapore 098140", "lat": 1.25404, "lng": 103.8238, "hours": "RWS 官方页面显示当日通常 10:00–20:00；实际开放及项目维护以官网日历为准", "official_note": "Resorts World Sentosa 官方 USS 页面列明位置 30 Sentosa Gateway 098140。", "route_note": "从酒店去圣淘沙可 Grab；也可 MRT 到 HarbourFront/VivoCity 后转 Sentosa Express 或步行 Boardwalk。", "sources": "RWS official: https://www.rwsentosa.com/en/play/universal-studios-singapore/", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}, {"name": "Jewel Changi Airport 星耀樟宜", "short_name": "D4｜星耀樟宜", "point_type": "attraction", "category": "Day 4", "day": "Day 4", "order": 1, "address": "78 Airport Boulevard, Singapore 819666", "lat": 1.36042, "lng": 103.98995, "hours": "Jewel 24 小时开放；多数商店 10:00–22:00；部分店延长营业", "official_note": "Jewel 官方 Getting to Jewel 页面列明地址 78 Airport Boulevard，并说明 Jewel 24 小时开放、多数商店 10:00–22:00。", "route_note": "适合 Day 4 离境前安排。注意：Jewel 在陆侧，不在过安检后的转机区；建议先存行李或提前值机。", "sources": "Jewel official: https://www.jewelchangiairport.com/en/getting-to-jewel.html", "review_verdict": "", "risk_level": "", "review_summary": "", "risk_notes": "", "best_for": "", "must": ""}];
+const routes = {"Day 1": [[1.3041, 103.82445], [1.2906, 103.85155], [1.28692, 103.85457], [1.28368, 103.86078], [1.2816, 103.8636]], "Day 2": [[1.3041, 103.82445], [1.40435, 103.79302], [1.40485, 103.79142], [1.40218, 103.78806]], "Day 3": [[1.3041, 103.82445], [1.25404, 103.8238]], "Day 4": [[1.3041, 103.82445], [1.36042, 103.98995]]};
+const catColors = {"糖水": "#9b59b6", "鸡饭": "#f1c40f", "海鲜": "#3498db", "田鸡": "#2ecc71", "住宿": "#111827", "Day 1": "#ef4444", "Day 2": "#16a34a", "Day 3": "#f97316", "Day 4": "#0ea5e9"};
+const catEmojis = {"糖水": "🍧", "鸡饭": "🍗", "海鲜": "🦀", "田鸡": "🐸", "住宿": "🏨", "Day 1": "1️⃣", "Day 2": "2️⃣", "Day 3": "3️⃣", "Day 4": "4️⃣"};
+const routeColors = {"Day 1": "#ef4444", "Day 2": "#16a34a", "Day 3": "#f97316", "Day 4": "#0ea5e9"};
+
+let currentType = '全部';
+let currentDay = '全部';
+let currentFood = '全部';
+
+const map = L.map('map', { preferCanvas: true }).setView([1.3005, 103.8525], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+const markers = [];
+const bounds = [];
+const routeLayers = {};
+
+function googleMapsUrl(p) {
+  const q = encodeURIComponent(`${p.name} ${p.address}`);
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
+
+function sourceLinks(text) {
+  if (!text) return '';
+  const parts = text.split(' | ');
+  return parts.map((s, i) => {
+    const urlMatch = s.match(/https?:\/\/\S+/);
+    if (urlMatch) {
+      const url = urlMatch[0];
+      const title = s.replace(url, '').replace(/[:：]\s*$/, '') || `来源 ${i+1}`;
+      return `<a href="${url}" target="_blank" rel="noopener">${title}</a>`;
+    }
+    return `<span>${s}</span>`;
+  }).join('');
+}
+
+function verdictColor(p) {
+  const v = p.review_verdict || '';
+  if (v.startsWith('强推荐')) return '#16a34a';
+  if (v.startsWith('可去')) return '#22c55e';
+  if (v.startsWith('备选')) return '#f59e0b';
+  if (v.startsWith('谨慎')) return '#ef4444';
+  return '#fff';
+}
+
+function makeIcon(p) {
+  if (p.point_type === 'hotel') {
+    return L.divIcon({ className:'', html:`<div class="marker hotel">🏨</div>`, iconSize:[40,40], iconAnchor:[20,20], popupAnchor:[0,-17] });
+  }
+  if (p.point_type === 'attraction') {
+    const label = p.day ? p.day.replace('Day ', 'D') : 'D';
+    return L.divIcon({ className:'', html:`<div class="marker attraction" style="background:${catColors[p.category] || '#64748b'}">${label}</div>`, iconSize:[40,36], iconAnchor:[20,18], popupAnchor:[0,-16] });
+  }
+  return L.divIcon({ className:'', html:`<div class="marker" style="background:${catColors[p.category] || '#ccc'}; border-color:${verdictColor(p)}">${catEmojis[p.category] || '📍'}</div>`, iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-15] });
+}
+
+function popupHtml(p) {
+  let tags = '';
+  if (p.point_type === 'food') {
+    tags = `<span class="tag" style="background:${catColors[p.category]}">${catEmojis[p.category]} ${p.category}</span>` +
+           (p.review_verdict ? `<span class="tag" style="background:${verdictColor(p)}">${p.review_verdict}</span>` : '') +
+           (p.risk_level ? `<span class="tag" style="background:${p.risk_level === '重点排雷' ? '#ef4444' : '#facc15'}">${p.risk_level}</span>` : '');
+  } else if (p.point_type === 'hotel') {
+    tags = `<span class="tag" style="background:#f8fafc">🏨 住宿</span>`;
+  } else {
+    tags = `<span class="tag" style="background:${catColors[p.category]}; color:#fff">${p.category}</span><span class="tag" style="background:#e2e8f0">第 ${p.order} 站</span>`;
+  }
+
+  const foodExtra = p.point_type === 'food' ? `
+    <p><b>推荐：</b>${p.must || ''}</p>
+    <p><b>公开评价：</b>${p.review_summary || ''}</p>
+    <p><b>排雷：</b>${p.risk_notes || ''}</p>
+    <p><b>适合：</b>${p.best_for || ''}</p>
+  ` : '';
+
+  const travelExtra = p.point_type !== 'food' ? `
+    <p><b>官方/公开确认：</b>${p.official_note || ''}</p>
+    <p><b>路线备注：</b>${p.route_note || ''}</p>
+  ` : '';
+
+  return `<div class="popup">
+    <h3>${p.short_name || p.name}</h3>
+    <p>${tags}</p>
+    <p><b>名称：</b>${p.name}</p>
+    <p><b>地址：</b>${p.address || ''}</p>
+    <p><b>时间：</b>${p.hours || ''}</p>
+    ${foodExtra}
+    ${travelExtra}
+    <div class="sources">${sourceLinks(p.sources || '')}</div>
+    <p><a href="${googleMapsUrl(p)}" target="_blank" rel="noopener">在 Google Maps 打开 ↗</a></p>
+  </div>`;
+}
+
+points.forEach((p, idx) => {
+  const marker = L.marker([p.lat, p.lng], { icon: makeIcon(p) }).bindPopup(popupHtml(p));
+  marker.addTo(map);
+  marker._idx = idx;
+  markers.push(marker);
+  bounds.push([p.lat, p.lng]);
+});
+
+Object.entries(routes).forEach(([day, coords]) => {
+  routeLayers[day] = L.polyline(coords, { color: routeColors[day], weight: 3, opacity: 0.55, dashArray: '8,8' }).addTo(map);
+});
+
+map.fitBounds(bounds, { padding: [40, 40] });
+
+const legend = document.getElementById('legend');
+Object.entries(catColors).forEach(([cat, color]) => {
+  const span = document.createElement('span');
+  const emoji = catEmojis[cat] || '📍';
+  span.innerHTML = `<i class="dot" style="background:${color}"></i>${emoji} ${cat}`;
+  legend.appendChild(span);
+});
+
+function matchFilters(p) {
+  const typeOK = currentType === '全部' || p.point_type === currentType;
+  const dayOK = currentDay === '全部' || p.day === currentDay || (currentDay === 'Hotel' && p.point_type === 'hotel');
+  const foodOK = currentFood === '全部' || (p.point_type === 'food' && p.category === currentFood) || p.point_type !== 'food';
+  return typeOK && dayOK && foodOK;
+}
+
+function renderList() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  points
+    .map((p, idx) => [p, idx])
+    .filter(([p]) => matchFilters(p))
+    .sort((a,b) => {
+      const orderType = {hotel:0, attraction:1, food:2};
+      if ((orderType[a[0].point_type] || 9) !== (orderType[b[0].point_type] || 9)) return (orderType[a[0].point_type] || 9) - (orderType[b[0].point_type] || 9);
+      if ((a[0].day || '') !== (b[0].day || '')) return (a[0].day || '').localeCompare(b[0].day || '');
+      return (Number(a[0].order) || 99) - (Number(b[0].order) || 99);
+    })
+    .forEach(([p, idx]) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      const tagBg = p.point_type === 'food' ? catColors[p.category] : (p.point_type === 'hotel' ? '#f8fafc' : catColors[p.category]);
+      const tagColor = p.point_type === 'attraction' ? '#fff' : '#111827';
+      const tagText = p.point_type === 'food' ? `${catEmojis[p.category] || ''} ${p.category}` : (p.point_type === 'hotel' ? '🏨 酒店' : `${p.category} 第${p.order}站`);
+      const extra = p.point_type === 'food'
+        ? `<div class="meta"><b>结论：</b>${p.review_verdict || ''}</div><div class="meta"><b>排雷：</b>${p.risk_notes || ''}</div>`
+        : `<div class="meta"><b>路线：</b>${p.route_note || ''}</div>`;
+      card.innerHTML = `
+        <div class="title"><span class="tag" style="background:${tagBg}; color:${tagColor}">${tagText}</span>${p.short_name || p.name}</div>
+        <div class="meta"><b>地址：</b>${p.address || ''}</div>
+        <div class="meta"><b>时间：</b>${p.hours || ''}</div>
+        ${extra}
+      `;
+      card.onclick = () => {
+        const m = markers[idx];
+        map.setView([p.lat, p.lng], 16, { animate: true });
+        m.openPopup();
+      };
+      list.appendChild(card);
+    });
+}
+
+function applyFilters() {
+  const visible = [];
+  markers.forEach(m => {
+    const p = points[m._idx];
+    if (matchFilters(p)) {
+      if (!map.hasLayer(m)) m.addTo(map);
+      visible.push(m.getLatLng());
+    } else {
+      if (map.hasLayer(m)) map.removeLayer(m);
+    }
+  });
+  Object.entries(routeLayers).forEach(([day, layer]) => {
+    const showRoute = (currentType === '全部' || currentType === 'hotel' || currentType === 'attraction') && (currentDay === '全部' || currentDay === day);
+    if (showRoute) { if (!map.hasLayer(layer)) layer.addTo(map); }
+    else { if (map.hasLayer(layer)) map.removeLayer(layer); }
+  });
+  renderList();
+  if (visible.length) map.fitBounds(visible, { padding: [45, 45] });
+}
+
+document.querySelectorAll('button.tfilter').forEach(btn => btn.addEventListener('click', () => {
+  currentType = btn.dataset.t;
+  document.querySelectorAll('button.tfilter').forEach(b => b.classList.toggle('active', b.dataset.t === currentType));
+  applyFilters();
+}));
+document.querySelectorAll('button.dfilter').forEach(btn => btn.addEventListener('click', () => {
+  currentDay = btn.dataset.d;
+  document.querySelectorAll('button.dfilter').forEach(b => b.classList.toggle('active', b.dataset.d === currentDay));
+  applyFilters();
+}));
+document.querySelectorAll('button.ffilter').forEach(btn => btn.addEventListener('click', () => {
+  currentFood = btn.dataset.f;
+  document.querySelectorAll('button.ffilter').forEach(b => b.classList.toggle('active', b.dataset.f === currentFood));
+  applyFilters();
+}));
+
+renderList();
+</script>
+</body>
+</html>
